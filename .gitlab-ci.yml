@@ -1,0 +1,20 @@
+image: debian:bookworm
+
+stages:
+  - build
+
+build_iso:
+  stage: build
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq pipx squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools debian-archive-keyring python3-pep517 git dosfstools sudo
+    - pipx install mkosi
+    - export PATH="$HOME/.local/bin:$PATH"
+  script:
+    - export PATH="$HOME/.local/bin:$PATH"
+    - mkosi build
+  artifacts:
+    name: "netmask-os-minimal-iso"
+    paths:
+      - output/*.iso
+    expire_in: 7 days
