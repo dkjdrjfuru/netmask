@@ -1,0 +1,43 @@
+name: Build Netmask OS ISO
+
+on:
+  push:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pipx \
+            squashfs-tools \
+            xorriso \
+            grub-pc-bin \
+            grub-efi-amd64-bin \
+            mtools \
+            debian-archive-keyring \
+            dosfstools \
+            python3-pep517
+
+          pipx install mkosi
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Build Netmask OS Minimal ISO
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          sudo env "PATH=$PATH" mkosi build
+
+      - name: Upload ISO Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: netmask-os-minimal-iso
+          path: output/*.iso
+          if-no-files-found: error
+          retention-days: 14

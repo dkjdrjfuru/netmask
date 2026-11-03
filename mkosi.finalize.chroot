@@ -1,0 +1,47 @@
+#!/bin/bash
+# mkosi.finalize.chroot — runs INSIDE the image as root, after everything
+# else is in place (packages, extra trees, preset-all).
+set -euo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+
+# fix skel permissions BEFORE useradd -m copies them into the home dir
+chmod 755 /etc/skel/.config/polybar/launch.sh
+chmod 440 /etc/sudoers.d/netmask
+
+echo ">>> [finalize] creating the netmask user"
+if ! id netmask >/dev/null 2>&1; then
+    useradd --create-home --uid 1000 --user-group \
+        --groups video,audio,input,netdev \
+        --shell /usr/bin/zsh \
+        --comment "Netmask OS" netmask
+fi
+passwd -d netmask                      # no password (auto-login anyway)
+passwd -l root >/dev/null 2>&1 || true # root stays locked
+
+# allow passwordless serial-console login (handy for headless debugging)
+if [ -f /etc/securetty ] && ! grep -q '^ttyS0$' /etc/securetty; then
+    echo ttyS0 >> /etc/securetty
+fi
+
+echo ">>> [finalize] live-system hygiene"
+rm -f /var/lib/dbus/machine-id
+: > /etc/machine-id # regenerated per boot -> correct for live ISOs
+
+# NetworkManager owns /etc/resolv.conf at runtime
+rm -f /etc/resolv.conf
+ln -s /run/NetworkManager/resolv.conf /etc/resolv.conf
+
+echo ">>> [finalize] enabling services"
+systemctl enable NetworkManager.service
+systemctl enable getty@tty1.service
+systemctl disable apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
+
+echo ">>> [finalize] rebuilding initramfs with live-boot hooks"
+update-initramfs -u >/dev/null 2>&1
+
+echo ">>> [finalize] font cache + permissions"
+fc-cache -f >/dev/null 2>&1 || true
+chmod 755 /home/netmask/.config/polybar/launch.sh
+
+echo ">>> [finalize] done"

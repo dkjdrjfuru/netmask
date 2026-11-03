@@ -1,0 +1,8 @@
+# mkosi build artifacts
+output/
+mkosi.cache/
+mkosi.work/
+*.iso
+*.raw
+.sha256
+.isobuild/
